@@ -1,0 +1,110 @@
+---
+title: "Week 7 Exercises"
+author: "Wing-Ho Ko"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading packages
+
+```{r}
+
+```
+
+## Exercises 1: fixed-effect versus random-effect variables
+
+Suppose you want to study the dependence of primary productivity on sea surface temperature using observations collected from multiple cruises across multiple ocean basins.
+
+What are some fixed-effect variables in this study? How about random-effect variables?
+
+
+## Exercise 2: Nested versus crossed effects
+
+Suppose you are investigating how phosphate concentration changes with depth across a number of stations, and you sample each stations multiple times during the year. Due to ship availability the sampling dates do not line up, but the samples are always collected at dawn, and multiple bottles are collected for each depth every time a station is visited. If you know a priori that seasonal effect are negligible, what would be a suitable random intercept only mixed effect model for the data collected from this study?
+
+
+## Exercises 3: LMM estimation on rat pups
+
+In a study of rat pup, each litter is randomly assigned to a treatment level (control, low, high), and the birth weight and sex of each pup is measured. In addition, the weight of the litter prior to birth is also measured.
+
+```{r}
+data(RatPupWeight, package="nlme")
+ratpup <- as.data.frame(RatPupWeight) |> mutate(
+  Litter = factor(Litter, ordered=FALSE), 
+  Treatment = factor(Treatment, ordered=FALSE)
+) 
+
+glimpse(ratpup)
+```
+
+We'll treat the the birth weight (`weight`) as response variable, and take the treatment of litter, litter size, and sex of pup as fixed factor. Finally, we'll consider the litter as random factor.
+
+1. Fit a random intercept model in which there is no interaction between the fixed factors, and obtain its summary information
+
+2. Which fixed-effect variables are statistically significant? (Hint: recall that significance of Treatment should be judged as a whole rather than as 2 separate effects)
+
+3. Refit a new model where the effect of sex is also affected by the random factor of litter, and print its summary
+
+4. How does the random effect on the intercept correlates with the random effect on sex in this new model? Illustrate the situation by making a scatter plot of the random effect coefficients
+
+
+## Exercise 4: LMM model selection on rat pup dataset
+
+Consider again the rat pup dataset. We'll perform model selection in the following order:
+
+```{r}
+data(RatPupWeight, package="nlme")
+ratpup <- as.data.frame(RatPupWeight) |> mutate(
+  Litter = factor(Litter, ordered=FALSE), 
+  Treatment = factor(Treatment, ordered=FALSE)
+) 
+
+glimpse(ratpup)
+```
+
+1. Determine an appropriate fixed-effect model. Start with a model for which the effects of sex, Treatment, and litter size are additive. Consider adding interactions. Use `step()` to determine the "best" fixed-effect model
+
+2. Now fit a model in which the random effect of litter on the intercept is added. Print out the resulting summary.
+
+3. Now you should see that the interaction becomes insignificant. So let's first perform a nested model hypothesis test to see if it is wise to include the interaction. Based on your results revise your "best" linear mixed model for the situation
+
+4. Now let's consider adding random effect on the sex variable. Test the associated hypothesis to determine whether the additional random effect is warranted.
+
+
+## Exercise 5: LMM diagnostics on rat pup dataset
+
+For the final model you obtained in Exercise 4,
+
+1. Plot the conditional residuals against the fitted value.
+
+2. Make a Q-Q plot of the residuals against the theoretical normal distribution
+
+3. Make a Q-Q plot of the random effect intercepts against the theoretical normal distribution
+
+4. Based on what you observed from the output of 1-3, are there any concerns about our final model?
+
+
+## Exercise 6: LMM prediction on rat pup dataset
+
+Again use the rat pup dataset. We will consider the mixed effect model `weight ~ sex + Treatment + Lsize + (1|Litter)`
+
+```{r}
+data(RatPupWeight, package="nlme")
+ratpup <- as.data.frame(RatPupWeight) |> mutate(
+  Litter = factor(Litter, ordered=FALSE), 
+  Treatment = factor(Treatment, ordered=FALSE)
+) 
+```
+
+```{r}
+ratpup_lmm <- lmer(
+  weight ~ sex + Lsize + Treatment + (1 | Litter), 
+  ratpup
+)
+```
+
+1. Fix litter size at the median. For each combination sex and Treatment, and for an unspecified (and possibly previously unobserved) litter, predict the mean pup weight and provide its uncertainty. Visualize the result in a plot with error bar
+
+2. Suppose the female rat producing litter #5 was latter given a low treatment dose and gave birth to 7 pups (i.e., `Lsize` = 7). What is the range of birth weights of rat pup (covering up to 95% chance) expected of each sex? Again visualize the result with a plot.

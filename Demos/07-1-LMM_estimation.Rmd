@@ -1,0 +1,162 @@
+---
+title: "Mixed effect model estimation"
+author: "Wing-Ho Ko"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading packages
+
+```{r}
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(varTestnlme)
+library(broom)
+library(broom.mixed)
+```
+
+
+## Introductory example
+
+### Loading dataset
+
+```{r}
+fish <- read_csv("data/fishdata.csv")
+glimpse(fish)
+```
+
+Narrow down to species "S1"
+
+```{r}
+fish_sub <- fish |> filter(Fish_Species=="S1")
+```
+
+Perform linear mixed model. The `(1|Lake)` means that we have a random effect term associated with the Lake factor, and the term only affect the intercept.
+
+```{r}
+fish_lmm1 <- lmer(Trophic_Pos ~ Fish_Length + (1|Lake), fish_sub)
+fish_lmm1
+```
+
+Obtain the summary
+
+```{r}
+fish_lmm1_sm <- summary(fish_lmm1)
+fish_lmm1_sm
+```
+
+Tidy up the information provided by model using `tidy()` from `broom.mixed`
+
+```{r}
+tidy(fish_lmm1)
+```
+
+## Including species as a fixed factor
+
+```{r}
+fish_lmm2 <- lmer(Trophic_Pos ~ Fish_Length + Fish_Species + (1|Lake), fish)
+fish_lmm2_sm <- summary(fish_lmm2)
+fish_lmm2_sm
+```
+
+As before we should test the Species factor as a whole, which can be done using `anova()`
+
+```{r}
+anova(fish_lmm2)
+```
+
+## Including species as a second random factor, independent of lake
+
+```{r}
+fish_lmm3 <- lmer(
+  Trophic_Pos ~ Fish_Length + (1|Fish_Species) + (1|Lake), 
+  fish
+)
+fish_lmm3_sm <- summary(fish_lmm3)
+fish_lmm3_sm
+```
+
+
+## Including random slope, WITHOUT covariance
+
+```{r}
+fish_lmm4 <- lmer(
+  Trophic_Pos ~ Fish_Length + Fish_Species + (1 + Fish_Length || Lake), 
+  fish
+)
+fish_lmm4_sm <- summary(fish_lmm4)
+fish_lmm4_sm
+```
+
+## Including random slope, WITH covariance
+
+```{r}
+fish_lmm5 <- lmer(
+  Trophic_Pos ~ Fish_Length + Fish_Species + (1 + Fish_Length | Lake), 
+  fish
+)
+fish_lmm5_sm <- summary(fish_lmm5)
+fish_lmm5_sm
+```
+
+We note that in both cases the Standard deviation in the slope parameter is very small. This suggest we should stick with the intercept-only model (more on that later)....
+
+
+## Extracting information
+
+Let's return to the simpler random-intercept only model:
+
+```{r}
+fish_lmm <- lmer(
+  Trophic_Pos ~ Fish_Length + Fish_Species + (1|Lake), 
+  fish
+)
+```
+
+Extract fixed effect
+
+```{r}
+fixef(fish_lmm)
+```
+
+Extract random effect:
+
+```{r}
+ranef(fish_lmm)
+```
+
+Extract total effect (= random effect + fixed effect)
+
+```{r}
+coef(fish_lmm)
+```
+
+
+```{r}
+fish_lmm_A <- lmer(
+  Trophic_Pos ~ Fish_Length + (1 | Fish_Species) + (1 | Lake), 
+  fish
+)
+summary(fish_lmm_A)
+```
+
+```{r}
+fish_lmm_B <- lmer(
+  Trophic_Pos ~ Fish_Length + (1 | Fish_Species), 
+  fish
+)
+summary(fish_lmm_B)
+```
+
+
+```{r}
+varCompTest(fish_lmm_A, fish_lmm_B)
+```
+
+```{r}
+anova(fish_lmm_B, fish_lmm_A)
+```
+

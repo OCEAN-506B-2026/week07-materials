@@ -1,0 +1,234 @@
+---
+title: "Linear regression with categorical variables"
+author: "Wing-Ho Ko"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading packages
+
+```{r}
+library(tidyverse)
+library(broom)
+library(car)
+library(e1071)
+library(dunn.test)
+library(ARTool)
+```
+
+## One-way ANOVA
+
+### Loading data
+
+We'll look at the ToothGrowth dataset, an investigation of the length of odontoblasts in 60 guinea pigs. Each animal received one of three dose levels of vitamin C by one of two delivery methods, orange juice (`OJ`) or ascorbic acid (`VC`)
+
+Loading the dataset
+
+```{r}
+tooth = datasets::ToothGrowth
+```
+
+Code the dose (which can be 1 of 3 distinct values) as a factor too
+
+```{r}
+tooth <- tooth |> mutate(dose = as.factor(dose))
+```
+
+```{r}
+glimpse(tooth)
+```
+
+### One-way ANOVA on dose
+
+Longer but more methodological way: fit an `lm()` and then perform `anova()`
+
+```{r}
+tooth_lm <- lm(len ~ dose, tooth)
+tooth_av <- anova(tooth_lm)
+tooth_av
+```
+
+Thus the effect of dose is significant.
+
+Alternatively, we can use `aov()` to run ANOVA in one go:
+
+```{r}
+aov(len ~ dose, tooth)
+```
+
+
+### Checking assumptions
+
+Check if there's any heteroscedasticity:
+
+```{r}
+leveneTest(tooth_lm)
+```
+
+So the null hypothesis (homogenity of variance) is not rejected.
+
+Now let's also check for non-normality
+
+```{r}
+ggplot(tooth, aes(sample=len, color=dose)) + geom_qq() + geom_qq_line()
+```
+
+```{r}
+tooth |> group_by(dose) |> summarize(
+  skewness = skewness(len, type=2),
+  kurtosis = kurtosis(len, type=2)
+)
+```
+
+The skewness of data at dose=0.5 is somewhat notable. 
+
+### Non-parametric alternative
+
+Given the skewness and the small size of samples, let's run Kruskal-Wallis to make sure things are consistent even if we take a non-parametric test:
+
+```{r}
+kruskal.test(tooth$len, tooth$dose)
+```
+
+So we see that our conclusion has not changed with a non-parametric test
+
+### Post-hoc tests
+
+For post-hoc tests, if we ignore the skewness issue we can just run Tukey's HSD (which needs to run on an object created by `aov()`)
+
+```{r}
+tooth_tukey <- TukeyHSD(aov(len ~ dose, tooth))
+tooth_tukey
+```
+
+We see that all pairwise comparison is statistically significant.
+
+Alternatively, the non-parametric analogue of Tukey's HSD is the Dunn's test
+
+```{r}
+tooth_dunn <- dunn.test(tooth$len, tooth$dose, method="holm")
+```
+
+Thus our conclusion has not changed.
+
+## Two-way ANOVA
+
+Again consider the ToothGrowth dataset, where `dose` is coded as factor
+
+### Loading data
+
+```{r}
+tooth = datasets::ToothGrowth
+```
+
+Code the dose (which can be 1 of 3 distinct values) as a factor too
+
+```{r}
+tooth <- tooth |> mutate(dose = as.factor(dose))
+```
+
+```{r}
+glimpse(tooth)
+```
+
+### Two-way ANOVA
+
+Let's perform two-way ANOVA. Again we first fit the full model and then pass it to the ANOVA function (this time we use `Anova()` from `car` and specify `type=III`). Note also that we have to set the contrasts for the categorical variables to `const.sum`
+
+```{r}
+tooth_lm_int <- lm(
+  len ~ dose * supp, tooth, 
+  contrast=list(dose=contr.sum, supp=contr.sum)
+)
+tooth_av_int <- Anova(tooth_lm_int, type="III")
+print(tooth_av_int)
+```
+
+### Checking assumptions
+
+```{r}
+leveneTest(tooth_lm_int)
+```
+
+The p-value is somewhat small, so we may want to proceed with caution.
+
+Also check normality:
+
+```{r}
+ggplot(tooth, aes(sample=len, color=dose, shape=dose)) + 
+  geom_qq() + geom_qq_line() + facet_grid(~supp)
+```
+
+```{r}
+tooth |> group_by(dose, supp) |> summarize(
+  skewness = skewness(len, type=2),
+  kurtosis = kurtosis(len, type=2)
+)
+```
+
+We see some issues with skewness and kurtosis for some of the subgroup. So perhaps we should go the non-parametric route
+
+### Non-parametric tests
+
+```{r}
+tooth_art <- art(len ~ dose * supp, tooth)
+tooth_art_av <- anova(tooth_art)
+tooth_art_av
+```
+
+Again we see that our conclusion has not changed, but the p-values have changed slightly in various places.
+
+
+## Both categorical and continuous explanatory variables
+
+Let's go back to the subsetted CalCOFI dataset
+
+### Loading data
+
+Load the subsetted data:
+
+```{r}
+CalCOFI <- read_csv("data/CalCOFI_sub.csv")
+```
+
+Inspect the dataset
+
+```{r}
+glimpse(CalCOFI)
+```
+
+## Categorical variable
+
+There are actually 3 stations within the subsetted data
+
+```{r}
+unique(CalCOFI$station)
+```
+
+To code the stations categorical, we use as.factor
+
+```{r}
+CalCOFI2 <- CalCOFI |> mutate(station = as.factor(station))
+```
+
+Now we can perform regression with station as a factor
+
+```{r}
+O_lm_cat <- lm(O_mmol_kg ~ depth_m + salinity + T_degC + station, CalCOFI2)
+```
+
+Display the summary:
+
+```{r}
+summary(O_lm_cat)
+```
+
+In term of testing the signifcance of the station variable, what we should really do is to compare the reduced model (where `station` is absent) with the full model (where `station` is present):
+
+```{r}
+O_lm_num <- lm(O_mmol_kg ~ depth_m + salinity + T_degC, CalCOFI2)
+anova(O_lm_num, O_lm_cat)
+```
+

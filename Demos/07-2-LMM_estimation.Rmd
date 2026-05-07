@@ -133,30 +133,3 @@ Extract total effect (= random effect + fixed effect)
 ```{r}
 coef(fish_lmm)
 ```
-
-
-```{r}
-fish_lmm_A <- lmer(
-  Trophic_Pos ~ Fish_Length + (1 | Fish_Species) + (1 | Lake), 
-  fish
-)
-summary(fish_lmm_A)
-```
-
-```{r}
-fish_lmm_B <- lmer(
-  Trophic_Pos ~ Fish_Length + (1 | Fish_Species), 
-  fish
-)
-summary(fish_lmm_B)
-```
-
-
-```{r}
-varCompTest(fish_lmm_A, fish_lmm_B)
-```
-
-```{r}
-anova(fish_lmm_B, fish_lmm_A)
-```
-
